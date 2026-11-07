@@ -1,0 +1,11 @@
+# Bundle layer for dsh-usage-spend.
+# One row per feature; the row points at this same package, which also carries
+# the browser half through `dsh.client`. The row id stays stable so profile
+# patches and the settings key `<package>#<row id>` keep working across versions.
+- insert:
+    - id: usage-cost
+      name: 'dsh-usage-spend'
+      config:
+        currency: CNY
+        usdToCny: 7.2
+        showBalance: true

@@ -1,0 +1,74 @@
+{
+  "name": "dsh-usage-spend",
+  "version": "0.1.0",
+  "description": "Session token usage and estimated spend for DSH: a composer usage pill, the amount appended to the built-in per-turn usage action, and a settings form for currency and exchange rate.",
+  "type": "module",
+  "license": "MIT",
+  "author": "itiswaller",
+  "main": "lib/index.js",
+  "icon": "./icon.svg",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "locale",
+    "icon.svg",
+    "README.md",
+    "README.zh.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "cordis",
+    "usage",
+    "cost",
+    "spend",
+    "token"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/iamwaller/dsh-usage-spend.git"
+  },
+  "homepage": "https://github.com/iamwaller/dsh-usage-spend#readme",
+  "bugs": {
+    "url": "https://github.com/iamwaller/dsh-usage-spend/issues"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "engines": {
+    "node": ">=20",
+    "dsh": "^0.2.2-rc.1"
+  },
+  "scripts": {
+    "test": "node --test tests/pricing.test.mjs",
+    "prepublishOnly": "node scripts/prepublish.mjs"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.5"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-chat"
+      ],
+      "platform": "web"
+    },
+    "manifestVersion": 1
+  }
+}
