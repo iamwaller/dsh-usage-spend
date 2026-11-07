@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Usage and spend",
-    "description": "Session token usage and estimated spend under the composer; currency and exchange rate are configured on this page.",
+    "description": "Session token usage and estimated spend under the composer, priced at DeepSeek peak and off-peak rates; currency and exchange rate are configured on this page.",
     "detail": "README.md"
   }
 }

@@ -45,10 +45,29 @@ test("deepseek-flash rates resolve through the provider alias", () => {
   const { api } = loadClient();
   const priced = api.priceFor({ provider: "deepseek-account", model: "deepseek-flash" });
   assert.ok(priced);
-  assert.equal(priced.rates.input, 0.15);
-  assert.equal(priced.rates.cacheRead, 0.003);
-  assert.equal(priced.rates.output, 0.6);
+  assert.equal(priced.rates.input, 1);
+  assert.equal(priced.rates.cacheRead, 0.02);
+  assert.equal(priced.rates.output, 4);
   assert.equal(priced.custom, false);
+});
+
+test("the pro model and the retired aliases are priced", () => {
+  const { api } = loadClient();
+  const pro = api.priceFor({ provider: "deepseek", model: "deepseek-v4-pro" });
+  assert.equal(pro.rates.input, 4.5);
+  assert.equal(pro.rates.cacheRead, 0.15);
+  assert.equal(pro.rates.output, 13.5);
+  // Retired names are still served, and billed, as Flash.
+  const flash = api.priceFor({ provider: "deepseek", model: "deepseek-flash" }).rates;
+  for (const model of ["deepseek-v4-flash", "deepseek-v4-flash-vision-exp"]) {
+    assert.deepEqual(api.priceFor({ provider: "deepseek", model }).rates, flash, model);
+  }
+});
+
+test("retired model names that are no longer served have no price", () => {
+  const { api } = loadClient();
+  assert.equal(api.priceFor({ provider: "deepseek", model: "deepseek-chat" }), null);
+  assert.equal(api.priceFor({ provider: "deepseek", model: "deepseek-reasoner" }), null);
 });
 
 test("unknown models have no price", () => {
@@ -59,15 +78,50 @@ test("unknown models have no price", () => {
 
 test("cost sums disjoint buckets per million tokens", () => {
   const { api } = loadClient();
-  const rates = { input: 0.15, cacheRead: 0.003, cacheWrite: 0.15, output: 0.6 };
+  const rates = { input: 1, cacheRead: 0.02, cacheWrite: 1, output: 4 };
   const usage = {
     uncachedInputTokens: 1_000_000,
     cacheReadTokens: 1_000_000,
     cacheWriteTokens: 0,
     outputTokens: 1_000_000,
   };
-  assert.ok(Math.abs(api.costOf(usage, rates) - 0.753) < 1e-12);
+  assert.ok(Math.abs(api.costOf(usage, rates) - 5.02) < 1e-12);
+  assert.ok(Math.abs(api.costOf(usage, rates, 2) - 10.04) < 1e-12);
+  assert.ok(Math.abs(api.costOf(usage, rates, 1) - 5.02) < 1e-12);
   assert.equal(api.costOf(usage, null), null);
+});
+
+test("peak hours follow the Beijing weekday windows", () => {
+  const { api } = loadClient();
+  const at = (iso) => Date.parse(iso);
+  // 2026-11-05 is a Thursday. Beijing time is UTC+8.
+  assert.equal(api.isPeak(at("2026-11-05T00:59:00Z")), false, "08:59 is off-peak");
+  assert.equal(api.isPeak(at("2026-11-05T01:00:00Z")), true, "09:00 opens the morning peak");
+  assert.equal(api.isPeak(at("2026-11-05T02:00:00Z")), true, "10:00 is peak");
+  assert.equal(api.isPeak(at("2026-11-05T04:00:00Z")), false, "12:00 closes the morning peak");
+  assert.equal(api.isPeak(at("2026-11-05T05:00:00Z")), false, "13:00 is the lunch gap");
+  assert.equal(api.isPeak(at("2026-11-05T06:00:00Z")), true, "14:00 opens the afternoon peak");
+  assert.equal(api.isPeak(at("2026-11-05T09:59:00Z")), true, "17:59 is still peak");
+  assert.equal(api.isPeak(at("2026-11-05T10:00:00Z")), false, "18:00 closes the afternoon peak");
+});
+
+test("weekends and public holidays are off-peak all day", () => {
+  const { api } = loadClient();
+  const at = (iso) => Date.parse(iso);
+  // 2026-11-07 is a Saturday, 2026-11-08 a Sunday.
+  assert.equal(api.isPeak(at("2026-11-07T02:00:00Z")), false, "Saturday 10:00");
+  assert.equal(api.isPeak(at("2026-11-08T07:00:00Z")), false, "Sunday 15:00");
+  // 2026-10-01 is a Thursday inside the National Day holiday.
+  assert.equal(api.isPeak(at("2026-10-01T02:00:00Z")), false, "holiday 10:00");
+  assert.equal(api.isPeak(at("2026-02-17T02:00:00Z")), false, "Spring Festival 10:00");
+  assert.equal(api.peakFactor(at("2026-11-05T02:00:00Z")), 2);
+  assert.equal(api.peakFactor(at("2026-11-07T02:00:00Z")), 1);
+});
+
+test("invalid instants fall back to the off-peak rate", () => {
+  const { api } = loadClient();
+  assert.equal(api.isPeak(undefined), false);
+  assert.equal(api.isPeak("not a time"), false);
 });
 
 test("billed input and total include every prompt bucket", () => {
@@ -116,9 +170,10 @@ test("localStorage price overrides win over the built-in table", () => {
 
 test("currency formatting honours the stored rate", () => {
   const { api } = loadClient({ "dsh.cost.usdToCny": "7" });
-  assert.equal(api.moneyText(0.01, "CNY"), "≈¥0.070");
-  assert.equal(api.moneyText(0.01, "USD"), "≈$0.010");
-  assert.ok(api.moneyText(0.01, "BOTH").includes("≈¥0.070 / ≈$0.010"));
+  // Amounts are CNY; the rate only converts the USD figure.
+  assert.equal(api.moneyText(0.07, "CNY"), "≈¥0.070");
+  assert.equal(api.moneyText(0.07, "USD"), "≈$0.010");
+  assert.ok(api.moneyText(0.07, "BOTH").includes("≈¥0.070 / ≈$0.010"));
 });
 
 test("config values are sanitised and win over the local fallback", () => {
