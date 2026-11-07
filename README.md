@@ -7,9 +7,9 @@ Shows the session's token usage and an **estimated spend** under the DSH compose
 - **Composer usage pill**: `85.3M tok · ≈¥3.09 · cache hit 99.4%`, replacing the built-in `usage` row.
 - **Click the card**: the header shows the exact token count and amount, followed by buckets for cache hits, uncached input, cache reads, cache writes, output and the billing window.
 - **Per-turn action**: the built-in `用量 85.3M tok` becomes `85.3M tok · ≈¥3.09`, priced at that turn's end time.
-- **Peak pricing**: Beijing time weekdays 09:00–12:00 and 14:00–18:00 cost double; everything else, weekends and public holidays included, is off-peak.
+- **Peak pricing**: Beijing time weekdays 09:00–12:00 and 14:00–18:00 cost double; everything else, weekends and public holidays included, is off-peak. The session total uses the windows that were in effect **when the tokens were spent**.
 - **Plugins page settings**: currency (CNY / USD / both), exchange rate, and whether to show the sidebar balance, with a read-only price table below the form.
-- **Sidebar balance**: `余额 ¥12.34` at the bottom of the sidebar, refreshed every 60 seconds or on click; the grant is in the tooltip; collapsed the sidebar shows a compact amount. A `峰` / `谷` badge after the amount names the billing window, and the tooltip spells it out. Can be turned off.
+- **Sidebar balance**: `余额 ¥12.34` at the bottom of the sidebar, refreshed every 60 seconds or on click; the grant is in the tooltip; collapsed the sidebar shows a compact amount. A `峰` / `谷` / `混` badge after the amount describes this session's billing-window mix, and the tooltip spells it out. Can be turned off.
 
 ## Install
 
@@ -60,8 +60,11 @@ How the numbers are produced:
 - Cost = (uncached input × input + cache reads × cache-read + cache writes × cache-write + output × output) / 1e6 × window multiplier
 - Cache writes bill at the cache-miss input price, matching DeepSeek
 - **Per-turn amounts use that turn's end time**, so they are exact
-- **The session total uses the window in effect now**: the whole-log token projection carries no time dimension, so a session cannot be replayed turn by turn. Reopening an old session prices the total at the window you open it in while the per-turn amounts stay put
-- The `峰` / `谷` badge at the end of the sidebar balance line names the window in effect. It is hidden when the sidebar is collapsed or the balance chip is turned off; the card's billing-window row still shows it
+- **The session total replays the session's own log hour by hour**: the Host route reads the raw event log, files each event's four token counters (uncached input / cache reads / cache writes / output) into whole-hour buckets by its own timestamp, then prices every bucket at the multiplier that actually applied in that hour and sums them. Every peak boundary sits on a whole hour and Beijing is a whole 8 hours ahead of UTC, so bucketing never straddles a boundary. Reopening an old session still bills it at its original windows
+- The blend is weighted by money, not by token count: a million output tokens and a million cache-read tokens differ by two hundred times in price, which a flat token share would get wrong
+- The card's billing-window row and the sidebar badge report the peak share of this session's tokens: `谷` off-peak only, `峰` peak only, `混` when it spans both (with the percentage in the card / tooltip)
+- When the log cannot be read (a session with no usage yet, or no session-query service), it falls back to the **window in effect now** and the badge reverts to the live `峰` / `谷`
+- The badge is hidden when the sidebar is collapsed or the balance chip is turned off; the card's billing-window row still shows it
 - CNY is the base currency; USD is converted with the configured rate and only affects that column
 - Discounts, granted credit, Search/Fetch fees and the platform's actual bill are **not** included. This is an estimate only.
 
@@ -77,13 +80,14 @@ Write `localStorage["dsh.cost.prices"]` from the browser console, keyed by model
 
 Keys may be the full model name, `provider/model`, or the bare model name. Reload to apply.
 
-> 0.1.0 overrides were USD; 0.2.0 switched to CNY and added the peak multiplier, so old overrides need re-entering in the new unit.
+> 0.1.0 overrides were USD; 0.2.0 switched to CNY and added the peak multiplier, so old overrides need re-entering in the new unit. 0.2.2 prices the session total hour by hour from its log, falling back to the live window only when the log is unreadable.
 
 ## Compatibility and limits
 
 - Targets the client slot / projection API of DSH `0.2.2-rc.1`.
 - The per-turn text is rewritten through a DOM observer; if a DSH release changes the built-in button's structure it degrades to the original `用量 N tok` and never affects the session.
-- Switching models inside a session estimates the whole session at the current model's prices.
+- Switching models inside a session prices every hourly bucket at the current model's rate (historical models are not replayed), so the total remains an estimate.
+- Billing windows come from the local Host route `/api/dsh-usage-spend/window`. It only reads and aggregates the session log by hour, never uploads the log and never calls a pricing API; the route is owner-only.
 - The sidebar balance calls `account.getBalance` (DeepSeek account) and shows `--` when signed out or when the read fails. It is the platform's balance, not a local estimate.
 - Currency and rate come from host settings; when the settings service is unavailable it falls back to `localStorage` (`dsh.cost.currency` / `dsh.cost.usdToCny`).
 

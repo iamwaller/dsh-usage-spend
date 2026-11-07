@@ -1,7 +1,7 @@
 {
   "name": "dsh-usage-spend",
-  "version": "0.2.1",
-  "description": "Session token usage and estimated spend for DSH, priced with DeepSeek peak and off-peak rates: a composer usage pill, the amount appended to the built-in per-turn usage action, and a settings form for currency and exchange rate.",
+  "version": "0.2.2",
+  "description": "Session token usage and estimated spend for DSH, priced at DeepSeek peak and off-peak rates by replaying the session's own hourly log: a composer usage pill, the amount appended to the built-in per-turn usage action, and a settings form for currency and exchange rate.",
   "type": "module",
   "license": "MIT",
   "author": "itiswaller",
@@ -50,7 +50,7 @@
     "dsh": "^0.2.2-rc.1"
   },
   "scripts": {
-    "test": "node --test tests/pricing.test.mjs",
+    "test": "node --test tests/pricing.test.mjs tests/window.test.mjs",
     "prepublishOnly": "node scripts/prepublish.mjs"
   },
   "dependencies": {
